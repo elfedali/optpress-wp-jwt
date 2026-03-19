@@ -27,7 +27,7 @@
  - PHP extensions: json, openssl
 
  Install & configure
- 1) Copy plugin folder to `wp-content/plugins/optpress-wp-jwt` and activate the plugin in WP admin.
+ 1) Copy plugin folder to `wp-content/plugins/optpress-jwt` and activate the plugin in WP admin.
  2) Add a strong secret to `wp-config.php` (required):
 
  ```php

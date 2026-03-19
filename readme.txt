@@ -37,7 +37,7 @@ OptPress JWT adds JWT (JSON Web Token) authentication to your WordPress site's R
 
 == Installation ==
 
-1. Upload the `optpress-wp-jwt` folder to the `/wp-content/plugins/` directory.
+1. Upload the `optpress-jwt` folder to the `/wp-content/plugins/` directory.
 2. Activate the plugin through the **Plugins** screen in WordPress.
 3. Add your JWT secret key to `wp-config.php`:
 

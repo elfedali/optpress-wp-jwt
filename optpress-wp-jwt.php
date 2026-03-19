@@ -29,9 +29,9 @@ define('OPTPRESS_JWT_PLUGIN_FILE', __FILE__);
 if (!defined('JWT_AUTH_SECRET_KEY')) {
     add_action('admin_notices', function() {
         echo '<div class="notice notice-error is-dismissible">
-            <p><strong>OptPress JWT:</strong> Please add JWT_AUTH_SECRET_KEY to your wp-config.php file.</p>
-            <p><code>define(\'JWT_AUTH_SECRET_KEY\', \'' . wp_generate_password(64, false) . '\');</code></p>
-            <p class="description">Copy the code above and add it to your wp-config.php file.</p>
+            <p><strong>' . esc_html__( 'OptPress JWT:', 'optpress-wp-jwt' ) . '</strong> ' . esc_html__( 'Please add JWT_AUTH_SECRET_KEY to your wp-config.php file.', 'optpress-wp-jwt' ) . '</p>
+            <p><code>define(\'JWT_AUTH_SECRET_KEY\', \'' . esc_html( wp_generate_password( 64, false ) ) . '\');</code></p>
+            <p class="description">' . esc_html__( 'Copy the code above and add it to your wp-config.php file.', 'optpress-wp-jwt' ) . '</p>
         </div>';
     });
     return;
@@ -212,8 +212,8 @@ class OptPress_WP_JWT_Auth {
         if (strlen($this->secret_key) < 32) {
             add_action('admin_notices', function() {
                 echo '<div class="notice notice-warning is-dismissible">
-                    <p><strong>OptPress JWT:</strong> Your JWT secret key should be at least 32 characters long for better security.</p>
-                    <p class="description">Current length: ' . strlen(JWT_AUTH_SECRET_KEY) . ' characters. Recommended: 64+ characters.</p>
+                    <p><strong>' . esc_html__( 'OptPress JWT:', 'optpress-wp-jwt' ) . '</strong> ' . esc_html__( 'Your JWT secret key should be at least 32 characters long for better security.', 'optpress-wp-jwt' ) . '</p>
+                    <p class="description">' . sprintf( esc_html__( 'Current length: %d characters. Recommended: 64+ characters.', 'optpress-wp-jwt' ), strlen( JWT_AUTH_SECRET_KEY ) ) . '</p>
                 </div>';
             });
         }
@@ -1182,7 +1182,7 @@ class OptPress_WP_JWT_Auth {
             'optpress_jwt_security_section',
             'Security Settings',
             function() {
-                echo '<p>Configure JWT authentication security settings.</p>';
+                echo '<p>' . esc_html__( 'Configure JWT authentication security settings.', 'optpress-wp-jwt' ) . '</p>';
             },
             'optpress_jwt_settings'
         );

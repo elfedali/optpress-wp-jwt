@@ -107,7 +107,7 @@ class JWT {
         
         // Check if the token is being used before it's valid
         if (isset($payload->nbf) && $payload->nbf > $timestamp) {
-            throw new Exception('Cannot handle token prior to ' . date('Y-m-d H:i:s', $payload->nbf));
+            throw new Exception('Cannot handle token prior to ' . gmdate('Y-m-d H:i:s', $payload->nbf)); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         
         // Check if the token was issued in the future
@@ -253,8 +253,8 @@ class JWT {
             JSON_ERROR_UTF8 => 'Malformed UTF-8 characters, possibly incorrectly encoded'
         ];
         
-        throw new Exception(
-            isset($messages[$errno]) ? $messages[$errno] : 'Unknown JSON error: ' . $errno
+        throw new Exception( // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            isset($messages[$errno]) ? $messages[$errno] : 'Unknown JSON error: ' . $errno // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         );
     }
     

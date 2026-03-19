@@ -213,7 +213,9 @@ class OptPress_WP_JWT_Auth {
             add_action('admin_notices', function() {
                 echo '<div class="notice notice-warning is-dismissible">
                     <p><strong>' . esc_html__( 'OptPress JWT:', 'optpress-wp-jwt' ) . '</strong> ' . esc_html__( 'Your JWT secret key should be at least 32 characters long for better security.', 'optpress-wp-jwt' ) . '</p>
-                    <p class="description">' . sprintf( esc_html__( 'Current length: %d characters. Recommended: 64+ characters.', 'optpress-wp-jwt' ), strlen( JWT_AUTH_SECRET_KEY ) ) . '</p>
+                    <p class="description">' .
+                    /* translators: %d is the current length of the secret key in characters */
+                    sprintf( esc_html__( 'Current length: %d characters. Recommended: 64+ characters.', 'optpress-wp-jwt' ), absint( strlen( JWT_AUTH_SECRET_KEY ) ) ) . '</p>
                 </div>';
             });
         }
@@ -461,6 +463,7 @@ class OptPress_WP_JWT_Auth {
         // Find refresh token in database
         $table_name = $wpdb->prefix . 'optpress_jwt_refresh_tokens';
         $stored_token = $wpdb->get_row($wpdb->prepare(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
             "SELECT * FROM $table_name WHERE token_hash = %s AND expires_at > NOW() AND is_revoked = 0",
             $token_hash
         ));
@@ -565,6 +568,7 @@ class OptPress_WP_JWT_Auth {
         $sessions_table = $wpdb->prefix . 'optpress_jwt_sessions';
         
         $sessions = $wpdb->get_results($wpdb->prepare(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
             "SELECT device_info, ip_address, last_activity, created_at 
              FROM $sessions_table 
              WHERE user_id = %d 
@@ -659,7 +663,7 @@ class OptPress_WP_JWT_Auth {
         $refresh_token = bin2hex(random_bytes(32));
         $token_hash = hash('sha256', $refresh_token);
         $expiry = $this->get_config('refresh_token_expiry', self::REFRESH_TOKEN_EXPIRY);
-        $expires_at = date('Y-m-d H:i:s', time() + $expiry);
+        $expires_at = gmdate('Y-m-d H:i:s', time() + $expiry);
         
         $table_name = $wpdb->prefix . 'optpress_jwt_refresh_tokens';
         
@@ -674,7 +678,7 @@ class OptPress_WP_JWT_Auth {
                 'expires_at' => $expires_at,
                 'device_info' => sanitize_text_field($device_info),
                 'ip_address' => $this->get_client_ip(),
-                'user_agent' => sanitize_text_field($_SERVER['HTTP_USER_AGENT'] ?? ''),
+                'user_agent' => sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT'] ?? '')),
                 'created_at' => current_time('mysql')
             ],
             ['%d', '%s', '%s', '%s', '%s', '%s', '%s']
@@ -696,6 +700,7 @@ class OptPress_WP_JWT_Auth {
         
         // Get IDs of tokens to keep
         $tokens_to_keep = $wpdb->get_col($wpdb->prepare(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
             "SELECT id FROM $table_name 
              WHERE user_id = %d AND is_revoked = 0 AND expires_at > NOW()
              ORDER BY created_at DESC 
@@ -711,6 +716,7 @@ class OptPress_WP_JWT_Auth {
         
         // Delete old tokens
         $wpdb->query($wpdb->prepare(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
             "DELETE FROM $table_name 
              WHERE user_id = %d 
              AND id NOT IN ($placeholders)",
@@ -841,9 +847,9 @@ class OptPress_WP_JWT_Auth {
         $auth_header = null;
         
         if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
-            $auth_header = $_SERVER['HTTP_AUTHORIZATION'];
+            $auth_header = wp_unslash($_SERVER['HTTP_AUTHORIZATION']); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
         } elseif (isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
-            $auth_header = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
+            $auth_header = wp_unslash($_SERVER['REDIRECT_HTTP_AUTHORIZATION']); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
         } elseif (function_exists('apache_request_headers')) {
             $headers = apache_request_headers();
             if (isset($headers['Authorization'])) {
@@ -932,7 +938,7 @@ class OptPress_WP_JWT_Auth {
         
         foreach ($ip_keys as $key) {
             if (!empty($_SERVER[$key])) {
-                $ip = $_SERVER[$key];
+                $ip = sanitize_text_field(wp_unslash($_SERVER[$key]));
                 // Get first IP if multiple are present
                 if (strpos($ip, ',') !== false) {
                     $ip = explode(',', $ip)[0];
@@ -945,7 +951,7 @@ class OptPress_WP_JWT_Auth {
             }
         }
         
-        return $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+        return sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
     }
     
     /**
@@ -962,6 +968,7 @@ class OptPress_WP_JWT_Auth {
         $max_attempts = $this->get_config('max_login_attempts', self::MAX_LOGIN_ATTEMPTS);
         
         $attempts = $wpdb->get_var($wpdb->prepare(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
             "SELECT COUNT(*) FROM $table_name 
              WHERE (username = %s OR ip_address = %s) 
              AND attempt_time > DATE_SUB(NOW(), INTERVAL %d SECOND)",
@@ -987,7 +994,7 @@ class OptPress_WP_JWT_Auth {
                 'username' => $username,
                 'ip_address' => $this->get_client_ip(),
                 'attempt_time' => current_time('mysql'),
-                'user_agent' => sanitize_text_field($_SERVER['HTTP_USER_AGENT'] ?? '')
+                'user_agent' => sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT'] ?? ''))
             ],
             ['%s', '%s', '%s', '%s']
         );
@@ -1005,6 +1012,7 @@ class OptPress_WP_JWT_Auth {
         $ip_address = $this->get_client_ip();
         
         $wpdb->query($wpdb->prepare(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
             "DELETE FROM $table_name WHERE username = %s OR ip_address = %s",
             $username, $ip_address
         ));
@@ -1112,6 +1120,7 @@ class OptPress_WP_JWT_Auth {
         $table_name = $wpdb->prefix . 'optpress_jwt_refresh_tokens';
         do {
             $deleted = $wpdb->query($wpdb->prepare(
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
                 "DELETE FROM $table_name 
                  WHERE (expires_at < NOW() OR is_revoked = 1) 
                  LIMIT %d",
@@ -1123,6 +1132,7 @@ class OptPress_WP_JWT_Auth {
         $sessions_table = $wpdb->prefix . 'optpress_jwt_sessions';
         do {
             $deleted = $wpdb->query($wpdb->prepare(
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
                 "DELETE FROM $sessions_table 
                  WHERE last_activity < DATE_SUB(NOW(), INTERVAL %d DAY) 
                  LIMIT %d",
@@ -1135,6 +1145,7 @@ class OptPress_WP_JWT_Auth {
         $attempts_table = $wpdb->prefix . 'optpress_jwt_login_attempts';
         do {
             $deleted = $wpdb->query($wpdb->prepare(
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
                 "DELETE FROM $attempts_table 
                  WHERE attempt_time < DATE_SUB(NOW(), INTERVAL 7 DAY) 
                  LIMIT %d",
@@ -1146,6 +1157,7 @@ class OptPress_WP_JWT_Auth {
         $security_logs_table = $wpdb->prefix . 'optpress_jwt_security_logs';
         do {
             $deleted = $wpdb->query($wpdb->prepare(
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
                 "DELETE FROM $security_logs_table 
                  WHERE event_time < DATE_SUB(NOW(), INTERVAL 90 DAY) 
                  LIMIT %d",
@@ -1219,7 +1231,7 @@ class OptPress_WP_JWT_Auth {
      */
     public function enqueue_admin_assets($hook_suffix) {
         // Only load assets on our settings page
-        if (!isset($_GET['page']) || $_GET['page'] !== 'optpress-jwt-settings') {
+        if (!isset($_GET['page']) || sanitize_text_field(wp_unslash($_GET['page'])) !== 'optpress-jwt-settings') {
             return;
         }
 
@@ -1256,56 +1268,56 @@ class OptPress_WP_JWT_Auth {
             <h1><?php echo esc_html(get_admin_page_title()); ?> <span class="opjwt-badge">v<?php echo esc_html(OPTPRESS_JWT_VERSION); ?></span></h1>
 
             <div class="opjwt-tabs">
-                <button type="button" class="opjwt-tab-btn" data-tab="dashboard"><?php _e('Dashboard', 'optpress-wp-jwt'); ?></button>
-                <button type="button" class="opjwt-tab-btn" data-tab="settings"><?php _e('OptPress JWT', 'optpress-wp-jwt'); ?></button>
-                <button type="button" class="opjwt-tab-btn" data-tab="docs"><?php _e('API Docs', 'optpress-wp-jwt'); ?></button>
-                <button type="button" class="opjwt-tab-btn" data-tab="logs"><?php _e('Security Logs', 'optpress-wp-jwt'); ?></button>
-                <button type="button" class="opjwt-tab-btn" data-tab="sessions"><?php _e('Sessions', 'optpress-wp-jwt'); ?></button>
+                <button type="button" class="opjwt-tab-btn" data-tab="dashboard"><?php esc_html_e('Dashboard', 'optpress-wp-jwt'); ?></button>
+                <button type="button" class="opjwt-tab-btn" data-tab="settings"><?php esc_html_e('OptPress JWT', 'optpress-wp-jwt'); ?></button>
+                <button type="button" class="opjwt-tab-btn" data-tab="docs"><?php esc_html_e('API Docs', 'optpress-wp-jwt'); ?></button>
+                <button type="button" class="opjwt-tab-btn" data-tab="logs"><?php esc_html_e('Security Logs', 'optpress-wp-jwt'); ?></button>
+                <button type="button" class="opjwt-tab-btn" data-tab="sessions"><?php esc_html_e('Sessions', 'optpress-wp-jwt'); ?></button>
             </div>
 
             <!-- ── DASHBOARD ───────────────────────────── -->
             <div id="opjwt-tab-dashboard" class="opjwt-tab-panel">
                 <div class="opjwt-stats-grid">
                     <div class="opjwt-stat-card opjwt-stat-blue">
-                        <div class="opjwt-stat-label"><?php _e('Plugin Version', 'optpress-wp-jwt'); ?></div>
+                        <div class="opjwt-stat-label"><?php esc_html_e('Plugin Version', 'optpress-wp-jwt'); ?></div>
                         <div class="opjwt-stat-value"><?php echo esc_html(OPTPRESS_JWT_VERSION); ?></div>
                         <div class="opjwt-stat-sub">PHP <?php echo esc_html(PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION); ?> &bull; WP <?php echo esc_html(get_bloginfo('version')); ?></div>
                     </div>
-                    <div class="opjwt-stat-card opjwt-stat-<?php echo $key_len >= 64 ? 'green' : ($key_len >= 32 ? 'orange' : 'red'); ?>">
-                        <div class="opjwt-stat-label"><?php _e('Secret Key', 'optpress-wp-jwt'); ?></div>
-                        <div class="opjwt-stat-value"><?php echo $key_len; ?> <span style="font-size:14px;font-weight:500;">chars</span></div>
-                        <div class="opjwt-stat-sub"><span class="<?php echo $key_badge; ?>"><?php echo $key_label; ?></span></div>
+                    <div class="opjwt-stat-card opjwt-stat-<?php echo esc_attr($key_len >= 64 ? 'green' : ($key_len >= 32 ? 'orange' : 'red')); ?>">
+                        <div class="opjwt-stat-label"><?php esc_html_e('Secret Key', 'optpress-wp-jwt'); ?></div>
+                        <div class="opjwt-stat-value"><?php echo esc_html($key_len); ?> <span style="font-size:14px;font-weight:500;">chars</span></div>
+                        <div class="opjwt-stat-sub"><span class="<?php echo esc_attr($key_badge); ?>"><?php echo esc_html($key_label); ?></span></div>
                     </div>
                     <div class="opjwt-stat-card opjwt-stat-blue">
-                        <div class="opjwt-stat-label"><?php _e('Active Sessions (24h)', 'optpress-wp-jwt'); ?></div>
-                        <div class="opjwt-stat-value"><?php echo $sessions_24h; ?></div>
-                        <div class="opjwt-stat-sub"><?php _e('Unique devices logged in', 'optpress-wp-jwt'); ?></div>
+                        <div class="opjwt-stat-label"><?php esc_html_e('Active Sessions (24h)', 'optpress-wp-jwt'); ?></div>
+                        <div class="opjwt-stat-value"><?php echo esc_html($sessions_24h); ?></div>
+                        <div class="opjwt-stat-sub"><?php esc_html_e('Unique devices logged in', 'optpress-wp-jwt'); ?></div>
                     </div>
                     <div class="opjwt-stat-card opjwt-stat-blue">
-                        <div class="opjwt-stat-label"><?php _e('Active Refresh Tokens', 'optpress-wp-jwt'); ?></div>
-                        <div class="opjwt-stat-value"><?php echo $active_rt; ?></div>
-                        <div class="opjwt-stat-sub"><?php _e('Valid & non-revoked', 'optpress-wp-jwt'); ?></div>
+                        <div class="opjwt-stat-label"><?php esc_html_e('Active Refresh Tokens', 'optpress-wp-jwt'); ?></div>
+                        <div class="opjwt-stat-value"><?php echo esc_html($active_rt); ?></div>
+                        <div class="opjwt-stat-sub"><?php esc_html_e('Valid & non-revoked', 'optpress-wp-jwt'); ?></div>
                     </div>
                 </div>
 
                 <div class="opjwt-status-grid">
                     <table class="opjwt-info-table">
-                        <tr><th colspan="2"><?php _e('System Info', 'optpress-wp-jwt'); ?></th></tr>
-                        <tr><td><?php _e('API Base URL', 'optpress-wp-jwt'); ?></td><td><code><?php echo esc_url(rest_url('auth-jwt/v1')); ?></code></td></tr>
-                        <tr><td><?php _e('Algorithm', 'optpress-wp-jwt'); ?></td><td><span class="opjwt-badge-info">HS256</span></td></tr>
-                        <tr><td><?php _e('Access Token Expiry', 'optpress-wp-jwt'); ?></td><td><?php echo esc_html(human_time_diff(0, $access_expiry)); ?> <span style="color:#787c82">(<?php echo $access_expiry; ?>s)</span></td></tr>
-                        <tr><td><?php _e('Refresh Token Expiry', 'optpress-wp-jwt'); ?></td><td><?php echo esc_html(human_time_diff(0, $refresh_expiry)); ?> <span style="color:#787c82">(<?php echo $refresh_expiry; ?>s)</span></td></tr>
-                        <tr><td><?php _e('Max Login Attempts', 'optpress-wp-jwt'); ?></td><td><?php echo esc_html($this->get_config('max_login_attempts', self::MAX_LOGIN_ATTEMPTS)); ?> <?php _e('per 15 min', 'optpress-wp-jwt'); ?></td></tr>
-                        <tr><td><?php _e('Secret Strength', 'optpress-wp-jwt'); ?></td><td><span class="<?php echo $key_badge; ?>"><?php echo $key_label; ?></span> &mdash; <?php echo $key_len; ?> chars</td></tr>
-                        <tr><td><?php _e('PHP Version', 'optpress-wp-jwt'); ?></td><td><?php echo esc_html(PHP_VERSION); ?></td></tr>
-                        <tr><td><?php _e('WordPress Version', 'optpress-wp-jwt'); ?></td><td><?php echo esc_html(get_bloginfo('version')); ?></td></tr>
+                        <tr><th colspan="2"><?php esc_html_e('System Info', 'optpress-wp-jwt'); ?></th></tr>
+                        <tr><td><?php esc_html_e('API Base URL', 'optpress-wp-jwt'); ?></td><td><code><?php echo esc_url(rest_url('auth-jwt/v1')); ?></code></td></tr>
+                        <tr><td><?php esc_html_e('Algorithm', 'optpress-wp-jwt'); ?></td><td><span class="opjwt-badge-info">HS256</span></td></tr>
+                        <tr><td><?php esc_html_e('Access Token Expiry', 'optpress-wp-jwt'); ?></td><td><?php echo esc_html(human_time_diff(0, $access_expiry)); ?> <span style="color:#787c82">(<?php echo esc_html($access_expiry); ?>s)</span></td></tr>
+                        <tr><td><?php esc_html_e('Refresh Token Expiry', 'optpress-wp-jwt'); ?></td><td><?php echo esc_html(human_time_diff(0, $refresh_expiry)); ?> <span style="color:#787c82">(<?php echo esc_html($refresh_expiry); ?>s)</span></td></tr>
+                        <tr><td><?php esc_html_e('Max Login Attempts', 'optpress-wp-jwt'); ?></td><td><?php echo esc_html($this->get_config('max_login_attempts', self::MAX_LOGIN_ATTEMPTS)); ?> <?php esc_html_e('per 15 min', 'optpress-wp-jwt'); ?></td></tr>
+                        <tr><td><?php esc_html_e('Secret Strength', 'optpress-wp-jwt'); ?></td><td><span class="<?php echo esc_attr($key_badge); ?>"><?php echo esc_html($key_label); ?></span> &mdash; <?php echo esc_html($key_len); ?> chars</td></tr>
+                        <tr><td><?php esc_html_e('PHP Version', 'optpress-wp-jwt'); ?></td><td><?php echo esc_html(PHP_VERSION); ?></td></tr>
+                        <tr><td><?php esc_html_e('WordPress Version', 'optpress-wp-jwt'); ?></td><td><?php echo esc_html(get_bloginfo('version')); ?></td></tr>
                     </table>
 
                     <div>
                         <div class="opjwt-settings-card">
-                            <h3><?php _e('Example cURL — Get Token', 'optpress-wp-jwt'); ?></h3>
+                            <h3><?php esc_html_e('Example cURL — Get Token', 'optpress-wp-jwt'); ?></h3>
                             <div class="opjwt-endpoint-block" id="opjwt-endpoint-curl"><?php echo esc_html($curl_example); ?></div>
-                            <button class="button opjwt-copy-btn" data-target="opjwt-endpoint-curl"><?php _e('Copy', 'optpress-wp-jwt'); ?></button>
+                            <button class="button opjwt-copy-btn" data-target="opjwt-endpoint-curl"><?php esc_html_e('Copy', 'optpress-wp-jwt'); ?></button>
                         </div>
                     </div>
                 </div>
@@ -1327,52 +1339,52 @@ class OptPress_WP_JWT_Auth {
             <!-- ── API DOCS ─────────────────────────────── -->
             <div id="opjwt-tab-docs" class="opjwt-tab-panel">
                 <div class="opjwt-settings-card">
-                    <h3><?php _e('REST API Endpoints', 'optpress-wp-jwt'); ?></h3>
-                    <p><?php _e('Send all requests with <code>Content-Type: application/json</code>. Protected endpoints require an <code>Authorization: Bearer &lt;token&gt;</code> header.', 'optpress-wp-jwt'); ?></p>
+                    <h3><?php esc_html_e('REST API Endpoints', 'optpress-wp-jwt'); ?></h3>
+                    <p><?php esc_html_e('Send all requests with Content-Type: application/json. Protected endpoints require an Authorization: Bearer <token> header.', 'optpress-wp-jwt'); ?></p>
                     <table class="opjwt-info-table opjwt-endpoint-table">
-                        <tr><th><?php _e('Method', 'optpress-wp-jwt'); ?></th><th><?php _e('Endpoint', 'optpress-wp-jwt'); ?></th><th><?php _e('Auth?', 'optpress-wp-jwt'); ?></th><th><?php _e('Description', 'optpress-wp-jwt'); ?></th></tr>
+                        <tr><th><?php esc_html_e('Method', 'optpress-wp-jwt'); ?></th><th><?php esc_html_e('Endpoint', 'optpress-wp-jwt'); ?></th><th><?php esc_html_e('Auth?', 'optpress-wp-jwt'); ?></th><th><?php esc_html_e('Description', 'optpress-wp-jwt'); ?></th></tr>
                         <tr>
                             <td><span class="opjwt-method opjwt-method-post">POST</span></td>
                             <td><code><?php echo esc_url(rest_url('auth-jwt/v1/token')); ?></code></td>
                             <td><span class="opjwt-badge-ok">Public</span></td>
-                            <td><?php _e('Login — returns <code>token</code> + <code>refresh_token</code>.', 'optpress-wp-jwt'); ?></td>
+                            <td><?php esc_html_e('Login — returns token + refresh_token.', 'optpress-wp-jwt'); ?></td>
                         </tr>
                         <tr>
                             <td><span class="opjwt-method opjwt-method-post">POST</span></td>
                             <td><code><?php echo esc_url(rest_url('auth-jwt/v1/token/validate')); ?></code></td>
                             <td><span class="opjwt-badge-ok">Public</span></td>
-                            <td><?php _e('Validate an access token and return the user info.', 'optpress-wp-jwt'); ?></td>
+                            <td><?php esc_html_e('Validate an access token and return the user info.', 'optpress-wp-jwt'); ?></td>
                         </tr>
                         <tr>
                             <td><span class="opjwt-method opjwt-method-post">POST</span></td>
                             <td><code><?php echo esc_url(rest_url('auth-jwt/v1/token/refresh')); ?></code></td>
                             <td><span class="opjwt-badge-ok">Public</span></td>
-                            <td><?php _e('Exchange a refresh token for a new access token (rotates token).', 'optpress-wp-jwt'); ?></td>
+                            <td><?php esc_html_e('Exchange a refresh token for a new access token (rotates token).', 'optpress-wp-jwt'); ?></td>
                         </tr>
                         <tr>
                             <td><span class="opjwt-method opjwt-method-post">POST</span></td>
                             <td><code><?php echo esc_url(rest_url('auth-jwt/v1/logout')); ?></code></td>
                             <td><span class="opjwt-badge-warn">Bearer</span></td>
-                            <td><?php _e('Revoke all tokens and sessions for the current user.', 'optpress-wp-jwt'); ?></td>
+                            <td><?php esc_html_e('Revoke all tokens and sessions for the current user.', 'optpress-wp-jwt'); ?></td>
                         </tr>
                         <tr>
                             <td><span class="opjwt-method opjwt-method-get">GET</span></td>
                             <td><code><?php echo esc_url(rest_url('auth-jwt/v1/user/sessions')); ?></code></td>
                             <td><span class="opjwt-badge-warn">Bearer</span></td>
-                            <td><?php _e('List active sessions for the authenticated user.', 'optpress-wp-jwt'); ?></td>
+                            <td><?php esc_html_e('List active sessions for the authenticated user.', 'optpress-wp-jwt'); ?></td>
                         </tr>
                         <tr>
                             <td><span class="opjwt-method opjwt-method-post">POST</span></td>
                             <td><code><?php echo esc_url(rest_url('auth-jwt/v1/user/sessions/revoke')); ?></code></td>
                             <td><span class="opjwt-badge-warn">Bearer</span></td>
-                            <td><?php _e('Revoke all sessions for the authenticated user.', 'optpress-wp-jwt'); ?></td>
+                            <td><?php esc_html_e('Revoke all sessions for the authenticated user.', 'optpress-wp-jwt'); ?></td>
                         </tr>
                     </table>
 
-                    <h3 style="margin-top:24px;"><?php _e('Request Body — Login', 'optpress-wp-jwt'); ?></h3>
+                    <h3 style="margin-top:24px;"><?php esc_html_e('Request Body — Login', 'optpress-wp-jwt'); ?></h3>
                     <div class="opjwt-endpoint-block"><?php echo esc_html("POST " . rest_url('auth-jwt/v1/token') . "\n\n{\n  \"username\": \"john\",\n  \"password\": \"secret\",\n  \"device_info\": \"iPhone 15\"  // optional\n}"); ?></div>
 
-                    <h3 style="margin-top:24px;"><?php _e('Using the Token', 'optpress-wp-jwt'); ?></h3>
+                    <h3 style="margin-top:24px;"><?php esc_html_e('Using the Token', 'optpress-wp-jwt'); ?></h3>
                     <div class="opjwt-endpoint-block"><?php echo esc_html("GET " . rest_url('wp/v2/posts') . "\nAuthorization: Bearer <your_access_token>"); ?></div>
                 </div>
             </div>
@@ -1381,20 +1393,22 @@ class OptPress_WP_JWT_Auth {
             <div id="opjwt-tab-logs" class="opjwt-tab-panel">
                 <div class="opjwt-logs-wrap">
                     <div class="opjwt-logs-toolbar">
-                        <h3><?php _e('Recent Security Events', 'optpress-wp-jwt'); ?></h3>
-                        <div><?php printf(__('Last %d events &bull; Kept for 90 days', 'optpress-wp-jwt'), 50); ?></div>
+                        <h3><?php esc_html_e('Recent Security Events', 'optpress-wp-jwt'); ?></h3>
+                        <div><?php
+                        /* translators: %d is the number of recent security events shown */
+                        printf( esc_html__( 'Last %d events — Kept for 90 days', 'optpress-wp-jwt' ), 50 ); ?></div>
                     </div>
                     <?php $logs = $this->get_security_logs(50); ?>
                     <?php if (empty($logs)) : ?>
-                        <table class="opjwt-data-table"><tbody><tr class="opjwt-empty-row"><td colspan="5"><?php _e('No security events recorded yet.', 'optpress-wp-jwt'); ?></td></tr></tbody></table>
+                        <table class="opjwt-data-table"><tbody><tr class="opjwt-empty-row"><td colspan="5"><?php esc_html_e('No security events recorded yet.', 'optpress-wp-jwt'); ?></td></tr></tbody></table>
                     <?php else: ?>
                         <table class="opjwt-data-table">
                             <thead><tr>
-                                <th><?php _e('Time', 'optpress-wp-jwt'); ?></th>
-                                <th><?php _e('Event', 'optpress-wp-jwt'); ?></th>
-                                <th><?php _e('User', 'optpress-wp-jwt'); ?></th>
-                                <th><?php _e('IP Address', 'optpress-wp-jwt'); ?></th>
-                                <th><?php _e('Details', 'optpress-wp-jwt'); ?></th>
+                                <th><?php esc_html_e('Time', 'optpress-wp-jwt'); ?></th>
+                                <th><?php esc_html_e('Event', 'optpress-wp-jwt'); ?></th>
+                                <th><?php esc_html_e('User', 'optpress-wp-jwt'); ?></th>
+                                <th><?php esc_html_e('IP Address', 'optpress-wp-jwt'); ?></th>
+                                <th><?php esc_html_e('Details', 'optpress-wp-jwt'); ?></th>
                             </tr></thead>
                             <tbody>
                             <?php foreach ($logs as $row): ?>
@@ -1418,6 +1432,7 @@ class OptPress_WP_JWT_Auth {
                 global $wpdb;
                 $sessions_table = $wpdb->prefix . 'optpress_jwt_sessions';
                 $recent_sessions = $wpdb->get_results(
+                    // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
                     "SELECT s.*, u.user_login FROM {$sessions_table} s
                      LEFT JOIN {$wpdb->users} u ON u.ID = s.user_id
                      ORDER BY s.last_activity DESC LIMIT 50"
@@ -1425,25 +1440,27 @@ class OptPress_WP_JWT_Auth {
                 ?>
                 <div class="opjwt-logs-wrap">
                     <div class="opjwt-logs-toolbar">
-                        <h3><?php printf(__('Recent Sessions &mdash; %d total (24h)', 'optpress-wp-jwt'), $sessions_24h); ?></h3>
-                        <div><?php _e('Showing last 50 sessions', 'optpress-wp-jwt'); ?></div>
+                        <h3><?php
+                        /* translators: %d is the number of active sessions in the last 24 hours */
+                        printf( esc_html__( 'Recent Sessions — %d total (24h)', 'optpress-wp-jwt' ), absint( $sessions_24h ) ); ?></h3>
+                        <div><?php esc_html_e('Showing last 50 sessions', 'optpress-wp-jwt'); ?></div>
                     </div>
                     <?php if (empty($recent_sessions)) : ?>
-                        <table class="opjwt-data-table"><tbody><tr class="opjwt-empty-row"><td colspan="5"><?php _e('No sessions found.', 'optpress-wp-jwt'); ?></td></tr></tbody></table>
+                        <table class="opjwt-data-table"><tbody><tr class="opjwt-empty-row"><td colspan="5"><?php esc_html_e('No sessions found.', 'optpress-wp-jwt'); ?></td></tr></tbody></table>
                     <?php else: ?>
                         <table class="opjwt-data-table">
                             <thead><tr>
-                                <th><?php _e('User', 'optpress-wp-jwt'); ?></th>
-                                <th><?php _e('Device', 'optpress-wp-jwt'); ?></th>
-                                <th><?php _e('IP Address', 'optpress-wp-jwt'); ?></th>
-                                <th><?php _e('Last Activity', 'optpress-wp-jwt'); ?></th>
-                                <th><?php _e('Created', 'optpress-wp-jwt'); ?></th>
+                                <th><?php esc_html_e('User', 'optpress-wp-jwt'); ?></th>
+                                <th><?php esc_html_e('Device', 'optpress-wp-jwt'); ?></th>
+                                <th><?php esc_html_e('IP Address', 'optpress-wp-jwt'); ?></th>
+                                <th><?php esc_html_e('Last Activity', 'optpress-wp-jwt'); ?></th>
+                                <th><?php esc_html_e('Created', 'optpress-wp-jwt'); ?></th>
                             </tr></thead>
                             <tbody>
                             <?php foreach ($recent_sessions as $s): ?>
                                 <tr>
                                     <td><strong><?php echo esc_html($s->user_login ?: 'User #' . $s->user_id); ?></strong></td>
-                                    <td><?php echo $s->device_info ? esc_html($s->device_info) : '<em style="color:#787c82">' . __('Unknown', 'optpress-wp-jwt') . '</em>'; ?></td>
+                                    <td><?php echo $s->device_info ? esc_html($s->device_info) : '<em style="color:#787c82">' . esc_html__('Unknown', 'optpress-wp-jwt') . '</em>'; ?></td>
                                     <td><code><?php echo esc_html($s->ip_address); ?></code></td>
                                     <td style="white-space:nowrap;"><?php echo esc_html($s->last_activity); ?></td>
                                     <td style="white-space:nowrap;color:#787c82;"><?php echo esc_html($s->created_at); ?></td>
@@ -1514,12 +1531,14 @@ class OptPress_WP_JWT_Auth {
     private function get_active_sessions_count() {
         global $wpdb;
         $table = $wpdb->prefix . 'optpress_jwt_sessions';
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
         return (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE last_activity > DATE_SUB(NOW(), INTERVAL 1 DAY)");
     }
     
     private function get_active_refresh_tokens_count() {
         global $wpdb;
         $table = $wpdb->prefix . 'optpress_jwt_refresh_tokens';
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
         return (int) $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE expires_at > NOW() AND is_revoked = 0");
     }
     
@@ -1537,7 +1556,7 @@ class OptPress_WP_JWT_Auth {
             $event_type,
             $username,
             $this->get_client_ip(),
-            sanitize_text_field($_SERVER['HTTP_USER_AGENT'] ?? 'unknown'),
+            sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT'] ?? 'unknown')),
             $details
         );
         
@@ -1573,7 +1592,7 @@ class OptPress_WP_JWT_Auth {
                 'event_type' => $event_type,
                 'username' => $username,
                 'ip_address' => $this->get_client_ip(),
-                'user_agent' => sanitize_text_field($_SERVER['HTTP_USER_AGENT'] ?? ''),
+                'user_agent' => sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT'] ?? '')),
                 'details' => $details,
                 'event_time' => current_time('mysql')
             ],
@@ -1593,6 +1612,7 @@ class OptPress_WP_JWT_Auth {
         $table_name = $wpdb->prefix . 'optpress_jwt_security_logs';
         
         return $wpdb->get_results($wpdb->prepare(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
             "SELECT * FROM $table_name ORDER BY event_time DESC LIMIT %d",
             $limit
         ), ARRAY_A);
@@ -1608,7 +1628,7 @@ OptPress_WP_JWT_Auth::get_instance();
 function optpress_jwt_cors_headers() {
     // Get allowed origins from settings or default
     $allowed_origins = apply_filters('optpress_jwt_allowed_origins', ['*']);
-    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    $origin = sanitize_text_field(wp_unslash($_SERVER['HTTP_ORIGIN'] ?? ''));
     
     if (in_array('*', $allowed_origins) || in_array($origin, $allowed_origins)) {
         header('Access-Control-Allow-Origin: ' . ($origin ?: '*'));
@@ -1625,7 +1645,7 @@ function optpress_jwt_cors_headers() {
     header('X-XSS-Protection: 1; mode=block');
     header('Referrer-Policy: strict-origin-when-cross-origin');
     
-    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
         http_response_code(200);
         exit(0);
     }
@@ -1639,7 +1659,8 @@ add_action('rest_api_init', function() {
     });
 }, 15);
 
-// Load text domain for translations
+// Load text domain for translations — WordPress auto-loads since 4.6; kept for backwards compatibility on older hosts
+// phpcs:ignore WordPress.WP.DeprecatedFunctions.load_plugin_textdomainFound
 function optpress_jwt_load_textdomain() {
     load_plugin_textdomain('optpress-wp-jwt', false, dirname(plugin_basename(__FILE__)) . '/languages');
 }

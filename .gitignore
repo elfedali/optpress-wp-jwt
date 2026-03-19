@@ -1,0 +1,36 @@
+# Dependencies
+vendor/
+node_modules/
+
+# Build output
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE / Editor
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Logs
+*.log
+error_log
+
+# WordPress specific
+wp-config.php
+uploads/
+
+# Environment
+.env
+.env.local
+
+# Composer
+composer.lock
+
+# NPM / Yarn
+package-lock.json
+yarn.lock

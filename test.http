@@ -1,0 +1,58 @@
+# OptPress JWT - REST tests (for VSCode REST Client or similar)
+
+# 1) Edit the host below if needed
+@host = http://localhost:10013
+
+# After running the Login request, copy `data.token` and `data.refresh_token` from the response
+# and set them here (or use the REST Client environment feature):
+# @token = <PASTE_ACCESS_TOKEN>
+# @refresh_token = <PASTE_REFRESH_TOKEN>
+
+### Login (get access + refresh tokens)
+POST {{host}}/wp-json/auth-jwt/v1/token
+Content-Type: application/json
+
+{
+  "username": "Webmaster",
+  "password": "password",
+  "device_info": "Local Test"
+}
+
+### Validate access token
+# Make sure you set @token after Login
+POST {{host}}/wp-json/auth-jwt/v1/token/validate
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+
+### Refresh token
+POST {{host}}/wp-json/auth-jwt/v1/token/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "{{refresh_token}}"
+}
+
+### Get current user sessions
+GET {{host}}/wp-json/auth-jwt/v1/user/sessions
+Authorization: Bearer {{token}}
+
+
+### Revoke all sessions for current user
+POST {{host}}/wp-json/auth-jwt/v1/user/sessions/revoke
+Authorization: Bearer {{token}}
+
+
+### Logout (revoke tokens)
+POST {{host}}/wp-json/auth-jwt/v1/logout
+Authorization: Bearer {{token}}
+
+
+# Optional: example direct WP REST call (list posts) using access token
+GET {{host}}/wp-json/wp/v2/posts
+Authorization: Bearer {{token}}
+
+# Notes:
+# - Replace credentials and host with your values before testing.
+# - For VSCode REST Client: after running Login, copy the token and add an @token variable line at the top or use the environment feature.
+# - If you get 401 on validate, try refreshing the token then retry.

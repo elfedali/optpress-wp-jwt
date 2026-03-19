@@ -98,7 +98,7 @@
  Author
  Abdessamad — https://github.com/elfedali
 
- Version: 1.0.0 — Last updated: March 19, 2026
+ Version: 1.2.0 — Last updated: March 19, 2026
 
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
@@ -503,7 +503,7 @@ For issues, questions, or feature requests:
 
 ---
 
-**Version**: 1.0.0  
+**Version**: 1.2.0  
 **Last Updated**: March 19, 2026  
 **Requires WordPress**: 5.0+  
 **Requires PHP**: 7.4+  

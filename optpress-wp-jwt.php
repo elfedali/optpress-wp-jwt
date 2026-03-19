@@ -2,7 +2,7 @@
 /**
  * Plugin Name: OptPress JWT
  * Description: Enhanced JWT Authentication plugin for WordPress with mobile app support, featuring rate limiting, session management, and comprehensive security
- * Version: 1.0.0
+ * Version: 1.2.0
  * Author: Abdessamad EL FEDALI
  * Author URI: https://github.com/elfedali
  * Text Domain: optpress-wp-jwt
@@ -11,6 +11,7 @@
  * Requires PHP: 7.4
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * Last Updated: March 19, 2026
  */
 
 // Prevent direct access
@@ -19,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('OPTPRESS_JWT_VERSION', '1.0.0');
+define('OPTPRESS_JWT_VERSION', '1.2.0');
 define('OPTPRESS_JWT_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('OPTPRESS_JWT_PLUGIN_PATH', plugin_dir_path(__FILE__));
 define('OPTPRESS_JWT_PLUGIN_FILE', __FILE__);
